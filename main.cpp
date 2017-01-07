@@ -18,7 +18,6 @@
 //framebuffer
 #include "lab_framebuffer.hpp"
 
-#include "lab_csg.hpp"
 //time
 #include <ctime>
 
@@ -33,6 +32,8 @@ private:
 
 	Object *object;
 	lab::Mesh object_mesh;
+		
+	lab::Mesh torus_mesh, cube_mesh;
 
 	unsigned int screen_width;
 	unsigned int screen_height;
@@ -47,10 +48,8 @@ public:
 		
         gl_program_shader = lab::loadShader("shadere/vertex.glsl", "shadere/fragment.glsl");
 		
-		lab::Mesh torus_mesh;
 		lab::loadObj("resurse/torus.obj", torus_mesh);
 
-		lab::Mesh cube_mesh;
 		lab::loadObj("resurse/cube.obj", cube_mesh);
 
 		Object *torus = torus_mesh.to_object();
@@ -76,6 +75,13 @@ public:
         glUseProgram (gl_program_shader);
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "view_matrix"), 1, false, glm::value_ptr(view_matrix_normal));
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "projection_matrix"), 1, false, glm::value_ptr(projection_matrix));
+
+        glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "model_matrix"), 1, false, glm::value_ptr(glm::scale(glm::mat4(1), glm::vec3(30, 30, 30))));
+		
+
+		object_mesh.Bind();
+		object_mesh.Draw();
+
 	}
 
 	void notifyEndFrame(){}

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lab_mesh_loader.hpp"
+#include "lab_vertex_format.hpp"
 
 #include <vector>
 #include <iostream>
@@ -38,6 +38,7 @@ class Plane {
 
 class Polygon {
 	public:
+		Polygon();
 		Polygon(std::vector<lab::VertexFormat> &points);
 		std::vector<lab::VertexFormat> getPoints();
 		Plane getPlane();
@@ -165,6 +166,8 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
 	}
 }
 
+Polygon::Polygon(){}
+
 Polygon::Polygon(std::vector<lab::VertexFormat> &points) {
 
 	if (points.size() < 3) {
@@ -172,6 +175,7 @@ Polygon::Polygon(std::vector<lab::VertexFormat> &points) {
 		return;
 	}
 
+	this->points.resize(points.size() + 1);
 	std::copy(points.begin(), points.end(), this->points.begin());
 	this->plane = Plane(points[0], points[1], points[2]);
 }
@@ -330,16 +334,21 @@ class Node {
 		}
 
 		std::vector<Polygon> allPolygons() {
-			std::vector<Polygon> result;
-			std::copy(this->polygons.begin(), this->polygons.end(), result.begin());
+			std::vector<Polygon> result = this->polygons;
+
+			//std::copy(this->polygons.begin(), this->polygons.end(), result.end());
 			if (this->front != NULL) {
 				std::vector<Polygon> part_result = this->front->allPolygons();
-				std::copy(part_result.begin(), part_result.end(), result.begin());
+				for (Polygon p : part_result) {
+					result.push_back(p);
+				}
 			}
 
 			if (this->back != NULL) {
 				std::vector<Polygon> part_result = this->back->allPolygons();
-				std::copy(part_result.begin(), part_result.end(), result.begin());
+				for (Polygon p : part_result) {
+					result.push_back(p);
+				}
 			}
 
 			return result;
@@ -362,18 +371,26 @@ class Object {
 		}
 
 		Object* substract(Object *other) {
+			std::cout << "-1\n";
 			std::vector<Polygon> V1 = this->bsp_tree->allPolygons();
+			std::cout << "0\n";
 			std::vector<Polygon> V2 = other->bsp_tree->allPolygons();
 
+			std::cout << "1\n";
 			Node* A = new Node(V1);
 			Node* B = new Node(V2);
 
+			std::cout << "2\n";
+
 			A->clipTo(B);
 			B->clipTo(A);
+			std::cout << "3\n";
 			B->invert();
 			B->clipTo(A);
+			std::cout << "4\n";
 			B->invert();
 			A->build(B->allPolygons());
+			std::cout << "5\n";
 
 			std::vector<Polygon> resultingPolygons = A->allPolygons();
 			return new Object(resultingPolygons);
