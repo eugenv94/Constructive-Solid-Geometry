@@ -1,18 +1,5 @@
-//-------------------------------------------------------------------------------------------------
-// Descriere: todo
-//
-// Contine:
-//		todo
-//
-//// Nota2:
-//		sunteti incurajati sa va scrieti parsele proprii pentru alte formaturi. Format sugerat: ply,off
-//
-// Autor: Lucian Petrescu
-// Data: 28 Sep 2013
-//-------------------------------------------------------------------------------------------------
 
 #pragma once
-
 #ifdef _WIN32
 #include "dependente\glew\glew.h"
 #include "dependente\glm\glm.hpp"
@@ -25,6 +12,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #endif
 
+#include "lab_vertex_format.hpp"
+#include "lab_csg.hpp"
+
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -33,79 +23,98 @@
 
 namespace lab{
 
-	//care este formatul unui vertex?
-	struct VertexFormat{
-		float position_x, position_y, position_z;				//pozitia unui vertex (x,y,z)	
-		float normal_x, normal_y, normal_z;						//vom invata ulterior, nu este folosit in acest lab
-		float texcoord_x, texcoord_y;							//vom invata ulterior, nu este folosit in acest lab
-		VertexFormat(){
-			position_x = position_y =position_z=0;
-			normal_x = normal_y = normal_z=0;
-			texcoord_x = texcoord_y=0;
-		}
-		VertexFormat(float px, float py, float pz ){
-			position_x =px;		position_y =py;		position_z =pz;
-			normal_x =normal_y= normal_z =0;
-			texcoord_x=	texcoord_y=0;
-		}
-		VertexFormat(float px, float py, float pz, float nx, float ny, float nz){
-			position_x =px;		position_y =py;		position_z =pz;
-			normal_x =nx;		normal_y =ny;		normal_z =nz;
-			texcoord_x=	texcoord_y=0;
-		}
-		VertexFormat(float px, float py, float pz, float tx, float ty){
-			position_x =px;		position_y =py;		position_z =pz;
-			texcoord_x=tx;		texcoord_y=ty;
-			normal_x =normal_y= normal_z =0;
-		}
-		VertexFormat(float px, float py, float pz, float nx, float ny, float nz, float tx, float ty){
-			position_x =px;		position_y =py;		position_z =pz;
-			normal_x =nx;		normal_y =ny;		normal_z =nz;
-			texcoord_x=tx;		texcoord_y=ty;
-		}
-		VertexFormat operator=(const VertexFormat &rhs){ 
-			position_x = rhs.position_x;	position_y = rhs.position_y;	position_z = rhs.position_z;
-			normal_x = rhs.normal_x;		normal_y = rhs.normal_y;		normal_z = rhs.normal_z;
-			texcoord_x = rhs.texcoord_x;	texcoord_y = rhs.texcoord_y;
-			return (*this);
-		}
-	};
+    struct Mesh {
+    	unsigned int vao, vbo, ibo, count;
+    	std::vector<lab::VertexFormat> vertices;
+    	std::vector<unsigned int> indices;
+    	glm::mat4 model_matrix;
 
-
-    //mic container pt obiecte ce apartin de mesh
-    struct Mesh{
         Mesh(){
             vao = vbo = ibo = count = 0;
         }
-        Mesh(unsigned int vao, unsigned int vbo, unsigned int ibo, unsigned int count){
+
+        Mesh (unsigned int vao, unsigned int vbo, unsigned int ibo, unsigned int count){
             this->vao = vao;
             this->vbo = vbo;
             this->ibo = ibo;
             this->count = count;
+            this->model_matrix = glm::mat4(1);
         }
+
+        Mesh (Object *object) {
+        	std::vector<Polygon> polygons = object->get_polygons();
+
+        	int k = 0;
+        	for (Polygon &polygon: polygons) {
+        		std::vector<lab::VertexFormat> polygon_vertices = polygon.getPoints();
+        		vertices.push_back (polygon_vertices[0]);
+        		vertices.push_back (polygon_vertices[1]);
+
+        		if (k != 0) k--;
+        		indices.push_back (k++);
+        		indices.push_back (k++);
+        		indices.push_back (k++);
+        	}
+
+			count = indices.size();
+
+			glGenVertexArrays(1, &vao);
+			glBindVertexArray(vao);
+
+			glGenBuffers(1, &vbo);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(lab::VertexFormat), &vertices[0], GL_STATIC_DRAW);
+
+			glGenBuffers(1, &ibo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+
+			glEnableVertexAttribArray(0);
+			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);						//trimite pozitii pe pipe 0
+			glEnableVertexAttribArray(1);
+			glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));		//trimite normale pe pipe 1
+			glEnableVertexAttribArray(2);
+			glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));	//trimite texcoords pe pipe 2
+        }
+
         void Bind(){
             glBindVertexArray(vao);
         }
+
         void Draw(){
             glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
         }
+
         ~Mesh(){
             glDeleteBuffers(1, &vbo);
             glDeleteBuffers(1, &ibo);
             glDeleteBuffers(1, &vao);
         }
-        unsigned int vao, vbo, ibo, count;
+
+        Object *to_object () {
+        	std::vector<Polygon> polygons;
+
+        	for (int i = 0; i < indices.size(); i += 3) {
+        		std::vector<lab::VertexFormat> polygon_vertices;
+        		polygon_vertices.push_back (vertices[indices[i + 0]]);
+        		polygon_vertices.push_back (vertices[indices[i + 1]]);
+        		polygon_vertices.push_back (vertices[indices[i + 2]]);
+        		polygons.push_back (Polygon (polygon_vertices));
+        	}
+
+        	return new Object (polygons);
+        }
     };
 
 	//definitie forward
-	void _loadObjFile(const std::string &filename, std::vector<VertexFormat> &vertices, std::vector<unsigned int> &indices);
+	void _loadObjFile(const std::string &filename, std::vector<lab::VertexFormat> &vertices, std::vector<unsigned int> &indices);
 
 	//incarca un fisier de tip Obj (fara NURBS, fara materiale)
 	//returneaza in argumentele trimise prin referinta id-ul OpenGL pentru vao(Vertex Array Object), pentru vbo(Vertex Buffer Object) si pentru ibo(Index Buffer Object)
 	void loadObj(const std::string &filename, Mesh& mesh){
 	
 		//incarca vertecsii si indecsii din fisier
-		std::vector<VertexFormat> vertices;
+		std::vector<lab::VertexFormat> vertices;
 		std::vector<unsigned int> indices;
 		_loadObjFile(filename, vertices, indices);
 
@@ -121,7 +130,7 @@ namespace lab{
 		//vertex buffer object -> un obiect in care tinem vertecsii
 		glGenBuffers(1,&gl_vertex_buffer_object);
 		glBindBuffer(GL_ARRAY_BUFFER, gl_vertex_buffer_object);
-		glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(VertexFormat), &vertices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(lab::VertexFormat), &vertices[0], GL_STATIC_DRAW);
 
 		//index buffer object -> un obiect in care tinem indecsii
 		glGenBuffers(1,&gl_index_buffer_object);
@@ -130,21 +139,23 @@ namespace lab{
 
 		//legatura intre atributele vertecsilor si pipeline, datele noastre sunt INTERLEAVED.
 		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(VertexFormat),(void*)0);						//trimite pozitii pe pipe 0
+		glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);						//trimite pozitii pe pipe 0
 		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(VertexFormat),(void*)(sizeof(float)*3));		//trimite normale pe pipe 1
+		glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));		//trimite normale pe pipe 1
 		glEnableVertexAttribArray(2);
-		glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(VertexFormat),(void*)(2*sizeof(float)*3));	//trimite texcoords pe pipe 2
+		glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));	//trimite texcoords pe pipe 2
 
 		mesh.vao = gl_vertex_array_object;
         mesh.vbo = gl_vertex_buffer_object;
         mesh.ibo = gl_index_buffer_object;
+        mesh.vertices = vertices;
+        mesh.indices = indices;
         mesh.count = indices.size();
 	}
 
-    void createQuad(const VertexFormat& v1, const VertexFormat& v2, const VertexFormat& v3, const VertexFormat& v4, Mesh& mesh){
+    void createQuad(const lab::VertexFormat& v1, const lab::VertexFormat& v2, const lab::VertexFormat& v3, const lab::VertexFormat& v4, Mesh& mesh){
         //creaza quad
-        std::vector<VertexFormat> vertices;
+        std::vector<lab::VertexFormat> vertices;
         vertices.push_back(v1); vertices.push_back(v2);
         vertices.push_back(v3); vertices.push_back(v4);
         std::vector<unsigned int> indices;
@@ -161,7 +172,7 @@ namespace lab{
         //vertex buffer object -> un obiect in care tinem vertecsii
         glGenBuffers(1, &gl_vertex_buffer_object);
         glBindBuffer(GL_ARRAY_BUFFER, gl_vertex_buffer_object);
-        glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(VertexFormat), &vertices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(lab::VertexFormat), &vertices[0], GL_STATIC_DRAW);
 
         //index buffer object -> un obiect in care tinem indecsii
         glGenBuffers(1, &gl_index_buffer_object);
@@ -170,11 +181,11 @@ namespace lab{
 
         //legatura intre atributele vertecsilor si pipeline, datele noastre sunt INTERLEAVED.
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)0);						//trimite pozitii pe pipe 0
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(lab::VertexFormat), (void*)0);						//trimite pozitii pe pipe 0
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)(sizeof(float)* 3));		//trimite normale pe pipe 1
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(lab::VertexFormat), (void*)(sizeof(float)* 3));		//trimite normale pe pipe 1
         glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(VertexFormat), (void*)(2 * sizeof(float)* 3));	//trimite texcoords pe pipe 2
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(lab::VertexFormat), (void*)(2 * sizeof(float)* 3));	//trimite texcoords pe pipe 2
 
         mesh.vao = gl_vertex_array_object;
         mesh.vbo = gl_vertex_buffer_object;
@@ -235,7 +246,7 @@ namespace lab{
 	//nu calculeaza normale sau coordonate de textura sau tangente, performanta neoptimala dar usor de citit (relativ la alte parsere..)
 	//considera geometria ca pe un singur obiect, deci nu tine cont de grupuri sau de smoothing
 	//daca apar probleme la incarcare fisier(?) incarcati mesha originala in meshlab(free!), salvati si folositi varianta noua.
-	void _loadObjFile(const std::string &filename, std::vector<VertexFormat> &vertices, std::vector<unsigned int> &indices){
+	void _loadObjFile(const std::string &filename, std::vector<lab::VertexFormat> &vertices, std::vector<unsigned int> &indices){
 		//citim din fisier
 		std::ifstream file(filename.c_str(), std::ios::in | std::ios::binary);
 		if(!file.good()){
@@ -296,7 +307,7 @@ namespace lab{
 						if(p_index>0) p_index -=1;								//obj has 1...n indices
 						else p_index = positions.size()+p_index;				//index negativ
 					
-						vertices.push_back(VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z));
+						vertices.push_back(lab::VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z));
 					}else if(face_format==2){
 						// pozitie si texcoord
 						int p_index = _stringToInt(facetokens[0]);
@@ -307,7 +318,7 @@ namespace lab{
 						if(t_index>0) t_index -=1;								//obj has 1...n indices
 						else t_index = texcoords.size()+t_index;				//index negativ
 
-						vertices.push_back(VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,texcoords[t_index].x, texcoords[t_index].y));
+						vertices.push_back(lab::VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,texcoords[t_index].x, texcoords[t_index].y));
 					}else if(face_format==3){
 						//pozitie si normala
 						int p_index = _stringToInt(facetokens[0]);
@@ -318,7 +329,7 @@ namespace lab{
 						if(n_index>0) n_index -=1;								//obj has 1...n indices
 						else n_index = normals.size()+n_index;					//index negativ
 
-						vertices.push_back(VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,normals[n_index].x, normals[n_index].y, normals[n_index].z));
+						vertices.push_back(lab::VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,normals[n_index].x, normals[n_index].y, normals[n_index].z));
 					}else{
 						//pozitie normala si texcoord
 						int p_index = _stringToInt(facetokens[0]);
@@ -333,7 +344,7 @@ namespace lab{
 						if(n_index>0) n_index -=1;								//obj has 1...n indices
 						else n_index = normals.size()+n_index;					//index negativ
 
-						vertices.push_back(VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,normals[n_index].x, normals[n_index].y, normals[n_index].z, texcoords[t_index].x, texcoords[t_index].y));
+						vertices.push_back(lab::VertexFormat(positions[p_index].x, positions[p_index].y, positions[p_index].z,normals[n_index].x, normals[n_index].y, normals[n_index].z, texcoords[t_index].x, texcoords[t_index].y));
 					}
 
 					//adauga si indecsii
