@@ -44,6 +44,7 @@ namespace lab{
 
 	};
 
+
     struct Mesh {
     	unsigned int vao, vbo, ibo, count;
     	std::vector<lab::VertexFormat> vertices;
@@ -60,63 +61,6 @@ namespace lab{
             this->ibo = ibo;
             this->count = count;
             this->model_matrix = glm::mat4(1);
-        }
-
-        // A B C D E F G   // vbo
-        
-        // 0 1 2   2 3 4   4 5 6 // ibo
-        // A B C  C D E   E F G 
-        Mesh (Object *object) {
-        	std::vector<Polygon> polygons = object->get_polygons();
-
-        	Indexer indexer;
-
-        	for (Polygon &polygon: polygons) {
-        		std::vector<unsigned int> polygon_indices;
-        		for (VertexFormat &vertex: polygon.getPoints()) {
-        			unsigned int index = indexer.add (vertex);
-        			polygon_indices.push_back (index);
-        		}
-
-        		for (int i = 2; i < polygon_indices.size(); i++)  {
-        			this->indices.push_back (polygon_indices[0]);
-        			this->indices.push_back (polygon_indices[i - 1]);
-        			this->indices.push_back (polygon_indices[i]);
-        		}
-        	}
-
-        	this->vertices = indexer.unique;
-			this->count = this->indices.size();
-			
-			std::cout << "Jimmy is: " << indices.size() << ' ' << vertices.size() << std::endl;
-
-			for (VertexFormat &jimmy:  vertices) {
-				std::cout << "Vertex: " << jimmy.position_x << " " << jimmy.position_y << " " <<jimmy.position_z << std::endl;
-			}
-
-
-			for (int i = 0; i < indices.size(); i += 3) {	
-				std::cout << indices[i] << " " << indices[i + 1] <<  " " << indices[i + 2] << std::endl;
-			}
-
-
-			glGenVertexArrays(1, &this->vao);
-			glBindVertexArray(this->vao);
-
-			glGenBuffers(1, &this->vbo);
-			glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
-			glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(lab::VertexFormat), &this->vertices[0], GL_STATIC_DRAW);
-
-			glGenBuffers(1, &this->ibo);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ibo);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &this->indices[0], GL_STATIC_DRAW);
-
-			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);
-			glEnableVertexAttribArray(1);
-			glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));
-			glEnableVertexAttribArray(2);
-			glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));
         }
 
         void Bind(){
@@ -136,6 +80,7 @@ namespace lab{
         Object *to_object () {
         	std::vector<Polygon> polygons;
 
+        	std::cout << "before: " << std::endl;
         	for (int i = 0; i < indices.size(); i += 3) {
         		std::vector<lab::VertexFormat> polygon_vertices;
         		polygon_vertices.push_back (vertices[indices[i + 0]]);
@@ -147,6 +92,61 @@ namespace lab{
         	return new Object (polygons);
         }
     };
+
+	void loadBSB (Object *object, Mesh &mesh) {
+		std::vector<Polygon> polygons = object->get_polygons();
+
+		std::vector<lab::VertexFormat> vertices;
+		std::vector<unsigned int> indices;
+
+    	Indexer indexer;
+
+    	for (Polygon &polygon: polygons) {
+    		std::vector<unsigned int> polygon_indices;
+    		for (VertexFormat &vertex: polygon.getPoints()) {
+    			unsigned int index = indexer.add (vertex);
+    			polygon_indices.push_back (index);
+    		}
+
+    		for (int i = 2; i < polygon_indices.size(); i++)  {
+    			indices.push_back (polygon_indices[0]);
+    			indices.push_back (polygon_indices[i - 1]);
+    			indices.push_back (polygon_indices[i]);
+    		}
+    	}
+
+    	vertices = indexer.unique;
+			unsigned int gl_vertex_array_object, gl_vertex_buffer_object, gl_index_buffer_object;
+
+		//vertex array object -> un obiect ce reprezinta un container pentru starea de desenare
+		glGenVertexArrays(1, &gl_vertex_array_object);
+		glBindVertexArray(gl_vertex_array_object);
+
+		//vertex buffer object -> un obiect in care tinem vertecsii
+		glGenBuffers(1,&gl_vertex_buffer_object);
+		glBindBuffer(GL_ARRAY_BUFFER, gl_vertex_buffer_object);
+		glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(lab::VertexFormat), &vertices[0], GL_STATIC_DRAW);
+
+		//index buffer object -> un obiect in care tinem indecsii
+		glGenBuffers(1,&gl_index_buffer_object);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl_index_buffer_object);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+
+		//legatura intre atributele vertecsilor si pipeline, datele noastre sunt INTERLEAVED.
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);						//trimite pozitii pe pipe 0
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));		//trimite normale pe pipe 1
+		glEnableVertexAttribArray(2);
+		glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));	//trimite texcoords pe pipe 2
+
+		mesh.vao = gl_vertex_array_object;
+        mesh.vbo = gl_vertex_buffer_object;
+        mesh.ibo = gl_index_buffer_object;
+        mesh.vertices = vertices;
+        mesh.indices = indices;
+        mesh.count = indices.size();
+    }
 
 	//definitie forward
 	void _loadObjFile(const std::string &filename, std::vector<lab::VertexFormat> &vertices, std::vector<unsigned int> &indices);

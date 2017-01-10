@@ -33,7 +33,7 @@ private:
 	Object *object;
 	lab::Mesh object_mesh;
 		
-	lab::Mesh torus_mesh, cube_mesh;
+	lab::Mesh torus_mesh, cube_mesh, sphere_mesh;
 
 	unsigned int screen_width;
 	unsigned int screen_height;
@@ -49,15 +49,16 @@ public:
         gl_program_shader = lab::loadShader("shadere/vertex.glsl", "shadere/fragment.glsl");
 		
 		lab::loadObj("resurse/torus.obj", torus_mesh);
-
 		lab::loadObj("resurse/cube.obj", cube_mesh);
+		lab::loadObj("resurse/sphere.obj", sphere_mesh);
 
-		Object *torus = torus_mesh.to_object();
-		//Object *cube = cube_mesh.to_object();
 
-		// object = cube->subtract (torus);
-		// object_mesh = lab::Mesh (object);
-		object_mesh = torus;
+		//Object *torus = torus_mesh.to_object();
+		Object *cube = cube_mesh.to_object();
+		Object *sphere = sphere_mesh.to_object();
+
+		Object *object = cube->subtract (sphere);
+		//lab::loadBSB (object, object_mesh);
 
 		view_matrix_normal = glm::lookAt (glm::vec3 (0, 50, 100), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
 		glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
@@ -78,8 +79,8 @@ public:
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "projection_matrix"), 1, false, glm::value_ptr(projection_matrix));
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "model_matrix"), 1, false, glm::value_ptr(glm::scale(glm::mat4(1), glm::vec3(30, 30, 30))));
 
-		//object_mesh.Bind();
-		//object_mesh.Draw();
+		// object_mesh.Bind();
+		// object_mesh.Draw();
 	}
 
 	void notifyEndFrame(){}

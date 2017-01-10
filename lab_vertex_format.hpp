@@ -13,6 +13,8 @@
 #endif
 
 
+#include <string>
+
 namespace lab {
 	struct VertexFormat {
 		float position_x, position_y, position_z;
@@ -80,6 +82,23 @@ namespace lab {
 			return VertexFormat (new_position_x, new_position_z, new_position_z,
 							     new_normal_x, new_normal_y, new_normal_z,
 							     new_texcoord_x, new_texcoord_y);
+		}
+
+		std::string toString () {
+			std::string result;
+
+			result += std::to_string (this->position_x);
+			result += std::to_string (this->position_y);
+			result += std::to_string (this->position_z);
+
+			result += std::to_string (this->normal_x);
+			result += std::to_string (this->normal_y);
+			result += std::to_string (this->normal_z);
+
+			result += std::to_string (this->texcoord_x);
+			result += std::to_string (this->texcoord_y);
+
+			return result;
 		}
 
 	};
