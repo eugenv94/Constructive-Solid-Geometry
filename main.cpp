@@ -18,6 +18,9 @@
 //framebuffer
 #include "lab_framebuffer.hpp"
 
+//camera
+#include "lab_camera.hpp"
+
 //time
 #include <ctime>
 
@@ -29,19 +32,28 @@ private:
 	glm::mat4 view_matrix_normal, view_matrix_reflectiv, projection_matrix;
 	unsigned int gl_program_shader;
 
-
+	lab::Camera camera;
 	Object *object;
-	lab::Mesh object_mesh;
-		
+	lab::Mesh object_mesh1;
+	lab::Mesh object_mesh2;
+	lab::Mesh object_mesh3;
+	int cnt;	
 	lab::Mesh torus_mesh, cube_mesh, sphere_mesh;
 
 	unsigned int screen_width;
 	unsigned int screen_height;
 
+	unsigned int ground_texture;
 
+	int key_state[256];
 
 public:
 	Laborator(){
+
+		cnt = 0;
+
+		ground_texture = lab::loadTextureBMP("resurse/ground.bmp");
+
 		glClearColor(0.5,0.5,0.5,1);
 		glClearDepth(1);			
 		glEnable(GL_DEPTH_TEST);	
@@ -58,9 +70,13 @@ public:
 		Object *sphere = sphere_mesh.to_object();
 
 		Object *object = cube->subtract (sphere);
-		//lab::loadBSB (object, object_mesh);
+		lab::loadBSB (cube, object_mesh1);
+		lab::loadBSB (sphere, object_mesh2);
+		lab::loadBSB (object, object_mesh3);
 
-		view_matrix_normal = glm::lookAt (glm::vec3 (0, 50, 100), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
+		camera.set(glm::vec3 (0, 50, 500), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
+		memset(key_state, 0, sizeof(key_state));
+
 		glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
 	}
 
@@ -72,16 +88,45 @@ public:
     
 	void notifyDisplayFrame(){
 
+		treatInput();
+
         glViewport (0, 0, screen_width, screen_height);
         glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram (gl_program_shader);
-        glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "view_matrix"), 1, false, glm::value_ptr(view_matrix_normal));
+        glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "view_matrix"), 1, false, glm::value_ptr(camera.getViewMatrix()));
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "projection_matrix"), 1, false, glm::value_ptr(projection_matrix));
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "model_matrix"), 1, false, glm::value_ptr(glm::scale(glm::mat4(1), glm::vec3(30, 30, 30))));
 
-		// object_mesh.Bind();
-		// object_mesh.Draw();
+		glActiveTexture(GL_TEXTURE0 + 1);
+		glBindTexture(GL_TEXTURE_2D, ground_texture);
+		glUniform1i(glGetUniformLocation(gl_program_shader, "textura_color"), 1);
+
+		cnt++;
+		if (cnt % 210 < 70) {
+			object_mesh1.Bind();
+			object_mesh1.Draw();
+		} else if (cnt % 210 < 140) {
+			object_mesh2.Bind();
+			object_mesh2.Draw();
+		} else {
+			object_mesh3.Bind();
+			object_mesh3.Draw();
+		}
+
+
 	}
+
+	void treatInput() {
+		if (key_state[(int)'w']) camera.translateForward(1.0f);
+		if (key_state[(int)'a']) camera.translateRight(1.0f);
+		if (key_state[(int)'s']) camera.translateForward(-1.0f);
+		if (key_state[(int)'d']) camera.translateRight(-1.0f);
+		if (key_state[(int)'q']) camera.rotateFPSoY(-0.05f);
+		if (key_state[(int)'e']) camera.rotateFPSoY(0.05f);
+		if (key_state[(int)'r']) camera.translateUpword(0.3);
+		if (key_state[(int)'f']) camera.translateUpword(-0.3f);
+	}
+
 
 	void notifyEndFrame(){}
 	void notifyReshape(int width, int height, int previos_width, int previous_height) {
@@ -98,9 +143,13 @@ public:
 			glDeleteProgram(gl_program_shader);
 			gl_program_shader = lab::loadShader("shadere/vertex.glsl", "shadere/fragment.glsl");
 		}
+		key_state[key_pressed] = 1;
 
 	}
-	void notifyKeyReleased(unsigned char key_released, int mouse_x, int mouse_y){	}
+	void notifyKeyReleased(unsigned char key_released, int mouse_x, int mouse_y) {
+		key_state[key_released] = 0;
+	}
+
 	void notifySpecialKeyPressed(int key_pressed, int mouse_x, int mouse_y){
 		if(key_pressed == GLUT_KEY_F1) lab::glut::enterFullscreen();
 		if(key_pressed == GLUT_KEY_F2) lab::glut::exitFullscreen();
