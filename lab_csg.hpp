@@ -32,7 +32,9 @@ class Plane {
 			std::vector<Polygon> &backFace);
 
 	private:
-		double A, B, C, D;
+//		double A, B, C, D;
+		glm::vec3 normal;
+		double W;
 };
 
 
@@ -63,25 +65,39 @@ Plane::Plane(lab::VertexFormat &P1, lab::VertexFormat &P2,
 	// two vectors in the plane) and then get the coordinates A, B, C
 	// and D.
 
-	glm::vec3 V1 = P3.get_position() - P1.get_position();
-	glm::vec3 V2 = P2.get_position() - P1.get_position();
-	glm::vec3 normal = glm::normalize(glm::cross(V1, V2));
+//	glm::vec3 V1 = P3.get_position() - P1.get_position();
+//	glm::vec3 V2 = P2.get_position() - P1.get_position();
+//	glm::vec3 normal = glm::normalize(glm::cross(V1, V2));
+//
+//	this->A = normal.x;
+//	this->B = normal.y;
+//	this->C = normal.z;
+//	this->D = glm::dot(normal, P1.get_position());
 
-	this->A = normal.x;
-	this->B = normal.y;
-	this->C = normal.z;
-	this->D = glm::dot(normal, P1.get_position());
+//	this->normal = glm::normalize(glm::cross(P2.get_position() - P1.get_position(),
+//				P3.get_position() - P1.get_position()));
+	this->normal = glm::cross(P2.get_position() - P1.get_position(),
+				P3.get_position() - P1.get_position());
+	auto xx = dot(this->normal, this->normal);
+	this->normal = glm::vec3(this->normal.x / xx, this->normal.y / xx, this->normal.z / xx);
+
+	this->W = glm::dot(this->normal, P1.get_position());
 }
 
 glm::vec3 Plane::getNormal() {
-	return glm::vec3(A, B, C);
+//	return glm::vec3(A, B, C);
+	return this->normal;
 }
 
 void Plane::flip() {
-	A *= -1;
-	B *= -1;
-	C *= -1;
-	D *= -1;
+	this->normal.x *= -1;
+	this->normal.y *= -1;
+	this->normal.z *= -1;
+	this->W *= -1;
+//	A *= -1;
+//	B *= -1;
+//	C *= -1;
+//	D *= -1;
 }
 
 void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
@@ -99,7 +115,7 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
 
 	for (unsigned int i = 0; i < points.size(); i++) {
 		glm::vec3 normal = getNormal();
-		double t = glm::dot(normal, points[i].get_position()) - D;
+		double t = glm::dot(normal, points[i].get_position()) - W;
 
 		int type;
 		if (t < -0.0001) {
@@ -151,7 +167,7 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
 
 			if ( (ti | tj) == SPANNING) {
 				glm::vec3 normal = getNormal();
-				double t = (D - glm::dot(normal, vi.get_position())) / (
+				double t = (W - glm::dot(normal, vi.get_position())) / (
 				glm::dot(normal, vj.get_position() - vi.get_position()));
 				auto v = vi.interpolate(vj, t);
 				//auto v = vi;
@@ -304,7 +320,7 @@ class Node {
 			}
 
 			std::vector<Polygon> f, b;
-			for (auto &polygon : polygons) {
+			for (auto polygon : polygons) {
 				this->plane.splitPolygon(polygon, f, b, f, b);
 			}
 
@@ -388,6 +404,24 @@ class Object {
 			B->invert();
 			A->build(B->allPolygons());
 			A->invert();
+
+			std::vector<Polygon> resultingPolygons = A->allPolygons();
+			return new Object(resultingPolygons);
+		}
+
+		Object* Union(Object *other) {
+			std::vector<Polygon> V1 = this->bsp_tree->allPolygons();
+			std::vector<Polygon> V2 = other->bsp_tree->allPolygons();
+
+			Node* A = new Node(V1);
+			Node* B = new Node(V2);
+
+			A->clipTo(B);
+			B->clipTo(A);
+			B->invert();
+			B->clipTo(A);
+			B->invert();
+			A->build(B->allPolygons());
 
 			std::vector<Polygon> resultingPolygons = A->allPolygons();
 			return new Object(resultingPolygons);

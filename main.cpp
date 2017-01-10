@@ -39,6 +39,7 @@ private:
 	lab::Mesh object_mesh3;
 	int cnt;	
 	lab::Mesh torus_mesh, cube_mesh, sphere_mesh;
+	lab::Mesh cube_mesh2;
 
 	unsigned int screen_width;
 	unsigned int screen_height;
@@ -62,16 +63,19 @@ public:
 		
 		lab::loadObj("resurse/torus.obj", torus_mesh);
 		lab::loadObj("resurse/cube.obj", cube_mesh);
+		lab::loadObj("resurse/cube2.obj", cube_mesh2);
 		lab::loadObj("resurse/sphere.obj", sphere_mesh);
 
 
 		//Object *torus = torus_mesh.to_object();
 		Object *cube = cube_mesh.to_object();
+		Object *cube2 = cube_mesh2.to_object();
 		Object *sphere = sphere_mesh.to_object();
 
-		Object *object = cube->subtract (sphere);
+//		Object *object = cube->subtract (sphere);
+		Object *object = cube->subtract(cube2);
 		lab::loadBSB (cube, object_mesh1);
-		lab::loadBSB (sphere, object_mesh2);
+		lab::loadBSB (cube2, object_mesh2);
 		lab::loadBSB (object, object_mesh3);
 
 		camera.set(glm::vec3 (0, 50, 500), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
