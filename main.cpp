@@ -53,10 +53,11 @@ public:
 		lab::loadObj("resurse/cube.obj", cube_mesh);
 
 		Object *torus = torus_mesh.to_object();
-		Object *cube = torus_mesh.to_object();
+		//Object *cube = cube_mesh.to_object();
 
-		object = cube->substract (torus);
-		object_mesh = lab::Mesh (object);
+		// object = cube->subtract (torus);
+		// object_mesh = lab::Mesh (object);
+		object_mesh = torus;
 
 		view_matrix_normal = glm::lookAt (glm::vec3 (0, 50, 100), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
 		glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
@@ -75,24 +76,20 @@ public:
         glUseProgram (gl_program_shader);
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "view_matrix"), 1, false, glm::value_ptr(view_matrix_normal));
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "projection_matrix"), 1, false, glm::value_ptr(projection_matrix));
-
         glUniformMatrix4fv (glGetUniformLocation(gl_program_shader, "model_matrix"), 1, false, glm::value_ptr(glm::scale(glm::mat4(1), glm::vec3(30, 30, 30))));
-		
 
-		object_mesh.Bind();
-		object_mesh.Draw();
-
+		//object_mesh.Bind();
+		//object_mesh.Draw();
 	}
 
 	void notifyEndFrame(){}
-	void notifyReshape(int width, int height, int previos_width, int previous_height){
+	void notifyReshape(int width, int height, int previos_width, int previous_height) {
 		if (height == 0) height = 1;
 		float aspect = (float)width / (float)height;
         screen_width = width;
         screen_height = height;
 		projection_matrix = glm::perspective (75.0f, aspect, 0.1f, 10000.0f);
 	}
-
 
 	void notifyKeyPressed(unsigned char key_pressed, int mouse_x, int mouse_y){
 		if(key_pressed == 27) lab::glut::close();

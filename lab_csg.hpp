@@ -27,9 +27,9 @@ class Plane {
 				lab::VertexFormat &P3);
 		glm::vec3 getNormal();
 		void flip();
-		void splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
-				std::vector<Polygon> &backFace, std::vector<Polygon> &coplanarFront,
-				std::vector<Polygon> &coplanarBack);
+		void splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
+			std::vector<Polygon> &coplanarBack, std::vector<Polygon> &frontFace,
+			std::vector<Polygon> &backFace);
 
 	private:
 		double A, B, C, D;
@@ -39,7 +39,7 @@ class Plane {
 class Polygon {
 	public:
 		Polygon();
-		Polygon(std::vector<lab::VertexFormat> &points);
+		Polygon(std::vector<lab::VertexFormat> points);
 		std::vector<lab::VertexFormat> getPoints();
 		Plane getPlane();
 		void flip();
@@ -84,9 +84,9 @@ void Plane::flip() {
 	D *= -1;
 }
 
-void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
-		std::vector<Polygon> &backFace, std::vector<Polygon> &coplanarFront,
-		std::vector<Polygon> &coplanarBack) {
+void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
+	std::vector<Polygon> &coplanarBack, std::vector<Polygon> &frontFace,
+	std::vector<Polygon> &backFace) {
 
 	int COPLANAR = 0;
 	int FRONT = 1;
@@ -97,7 +97,7 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
 	std::vector<lab::VertexFormat> points = polygon.getPoints();
 	std::vector<int> types;
 
-	for (int i = 0; i < points.size(); i++) {
+	for (unsigned int i = 0; i < points.size(); i++) {
 		glm::vec3 normal = getNormal();
 		double t = glm::dot(normal, points[i].get_position()) - D;
 
@@ -139,14 +139,14 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
 		std::vector<lab::VertexFormat> f;
 		std::vector<lab::VertexFormat> b;
 
-		for (int i = 0; i < points.size(); i++) {
+		for (unsigned int i = 0; i < points.size(); i++) {
 			int j = (i + 1) % points.size();
 			int ti = types[i];
 			int tj = types[j];
 
 			auto vi = points[i];
 			auto vj = points[j];
-			if (tj != BACK) f.push_back(vi);
+			if (ti != BACK) f.push_back(vi);
 			if (ti != FRONT) b.push_back(vi);
 
 			if ( (ti | tj) == SPANNING) {
@@ -168,20 +168,20 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &frontFace,
 
 Polygon::Polygon(){}
 
-Polygon::Polygon(std::vector<lab::VertexFormat> &points) {
+Polygon::Polygon(std::vector<lab::VertexFormat> points) {
 
 	if (points.size() < 3) {
 		std::cout << "A polygon should have at least 3 vertices!";
 		return;
 	}
 
-	this->points.resize(points.size() + 1);
-	std::copy(points.begin(), points.end(), this->points.begin());
+	this->points = points;
 	this->plane = Plane(points[0], points[1], points[2]);
 }
 
 void Polygon::flip() {
-	for (auto &point : points) {
+	std::reverse (this->points.begin(), this->points.end());
+	for (auto &point : this->points) {
 		point.flip();
 	}
 	plane.flip();
@@ -271,6 +271,7 @@ class Node {
 			for (auto polygon : polygons) {
 				this->plane.splitPolygon(polygon, this->polygons, this->polygons, f, b);
 			}
+			std::cout << this->polygons.size() << " " << f.size() << ' ' << b.size() << std::endl;
 
 			if (f.size() > 0) {
 				if (this->front == NULL) this->front = new Node(std::vector<Polygon>{});
@@ -308,21 +309,24 @@ class Node {
 			}
 
 			if (this->front != NULL) {
-				this->front->clipPolygons(f);
+				f = this->front->clipPolygons(f);
 			}
 
 			if (this->back != NULL) {
-				this->back->clipPolygons(b);
+				b = this->back->clipPolygons(b);
 			} else {
 				b.clear();
 			}
+			
+			for (auto p: b) {
+				f.push_back (p);
+			}
 
-			std::copy(b.begin(), b.end(), f.begin());
 			return f;
 		}
 
 		void clipTo(Node* bsp) {
-			std::vector<Polygon> polygons = bsp->clipPolygons(this->polygons);
+			this->polygons = bsp->clipPolygons(this->polygons);
 			
 			if (this->front != NULL) {
 				this->front->clipTo(bsp);
@@ -336,7 +340,6 @@ class Node {
 		std::vector<Polygon> allPolygons() {
 			std::vector<Polygon> result = this->polygons;
 
-			//std::copy(this->polygons.begin(), this->polygons.end(), result.end());
 			if (this->front != NULL) {
 				std::vector<Polygon> part_result = this->front->allPolygons();
 				for (Polygon p : part_result) {
@@ -366,31 +369,25 @@ class Object {
 	public:
 		Node* bsp_tree;
 		
-		Object(std::vector<Polygon> &polygons) {
+		Object(std::vector<Polygon> polygons) {
 			bsp_tree = new Node(polygons);
 		}
 
-		Object* substract(Object *other) {
-			std::cout << "-1\n";
+		Object* subtract(Object *other) {
 			std::vector<Polygon> V1 = this->bsp_tree->allPolygons();
-			std::cout << "0\n";
 			std::vector<Polygon> V2 = other->bsp_tree->allPolygons();
 
-			std::cout << "1\n";
 			Node* A = new Node(V1);
 			Node* B = new Node(V2);
 
-			std::cout << "2\n";
-
+			A->invert();
 			A->clipTo(B);
 			B->clipTo(A);
-			std::cout << "3\n";
 			B->invert();
 			B->clipTo(A);
-			std::cout << "4\n";
 			B->invert();
 			A->build(B->allPolygons());
-			std::cout << "5\n";
+			A->invert();
 
 			std::vector<Polygon> resultingPolygons = A->allPolygons();
 			return new Object(resultingPolygons);
