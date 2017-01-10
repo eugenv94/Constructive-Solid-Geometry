@@ -20,8 +20,29 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <unordered_map>
 
 namespace lab{
+
+
+
+	class Indexer {
+	public:
+		std::vector<lab::VertexFormat> unique;
+		std::vector<unsigned int> indices;
+		std::unordered_map<std::string, unsigned int> hash_map;
+
+		unsigned int add (VertexFormat &vertex) {
+			std::string key = vertex.toString();
+			if (this->hash_map.find (key) == this->hash_map.end()) {
+				this->hash_map[key] = this->unique.size();
+				this->unique.push_back (vertex);
+			}
+
+			return this->hash_map[key];
+		}
+
+	};
 
     struct Mesh {
     	unsigned int vao, vbo, ibo, count;
@@ -41,48 +62,69 @@ namespace lab{
             this->model_matrix = glm::mat4(1);
         }
 
+        // A B C D E F G   // vbo
+        
+        // 0 1 2   2 3 4   4 5 6 // ibo
+        // A B C  C D E   E F G 
         Mesh (Object *object) {
         	std::vector<Polygon> polygons = object->get_polygons();
 
-        	int k = 0;
-        	for (Polygon &polygon: polygons) {
-        		std::vector<lab::VertexFormat> polygon_vertices = polygon.getPoints();
-        		vertices.push_back (polygon_vertices[0]);
-        		vertices.push_back (polygon_vertices[1]);
+        	Indexer indexer;
 
-        		if (k != 0) k--;
-        		indices.push_back (k++);
-        		indices.push_back (k++);
-        		indices.push_back (k++);
+        	for (Polygon &polygon: polygons) {
+        		std::vector<unsigned int> polygon_indices;
+        		for (VertexFormat &vertex: polygon.getPoints()) {
+        			unsigned int index = indexer.add (vertex);
+        			polygon_indices.push_back (index);
+        		}
+
+        		for (int i = 2; i < polygon_indices.size(); i++)  {
+        			this->indices.push_back (polygon_indices[0]);
+        			this->indices.push_back (polygon_indices[i - 1]);
+        			this->indices.push_back (polygon_indices[i]);
+        		}
         	}
 
-			count = indices.size();
+        	this->vertices = indexer.unique;
+			this->count = this->indices.size();
+			
+			std::cout << "Jimmy is: " << indices.size() << ' ' << vertices.size() << std::endl;
 
-			glGenVertexArrays(1, &vao);
-			glBindVertexArray(vao);
+			for (VertexFormat &jimmy:  vertices) {
+				std::cout << "Vertex: " << jimmy.position_x << " " << jimmy.position_y << " " <<jimmy.position_z << std::endl;
+			}
 
-			glGenBuffers(1, &vbo);
-			glBindBuffer(GL_ARRAY_BUFFER, vbo);
-			glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(lab::VertexFormat), &vertices[0], GL_STATIC_DRAW);
 
-			glGenBuffers(1, &ibo);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size()*sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
+			for (int i = 0; i < indices.size(); i += 3) {	
+				std::cout << indices[i] << " " << indices[i + 1] <<  " " << indices[i + 2] << std::endl;
+			}
+
+
+			glGenVertexArrays(1, &this->vao);
+			glBindVertexArray(this->vao);
+
+			glGenBuffers(1, &this->vbo);
+			glBindBuffer(GL_ARRAY_BUFFER, this->vbo);
+			glBufferData(GL_ARRAY_BUFFER, this->vertices.size() * sizeof(lab::VertexFormat), &this->vertices[0], GL_STATIC_DRAW);
+
+			glGenBuffers(1, &this->ibo);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->ibo);
+			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &this->indices[0], GL_STATIC_DRAW);
 
 			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);						//trimite pozitii pe pipe 0
+			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)0);
 			glEnableVertexAttribArray(1);
-			glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));		//trimite normale pe pipe 1
+			glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(sizeof(float)*3));
 			glEnableVertexAttribArray(2);
-			glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));	//trimite texcoords pe pipe 2
+			glVertexAttribPointer(2,2,GL_FLOAT,GL_FALSE,sizeof(lab::VertexFormat),(void*)(2*sizeof(float)*3));
         }
 
         void Bind(){
-            glBindVertexArray(vao);
+            glBindVertexArray(this->vao);
         }
 
         void Draw(){
-            glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+            glDrawElements(GL_TRIANGLES, this->count, GL_UNSIGNED_INT, 0);
         }
 
         ~Mesh(){
@@ -297,7 +339,6 @@ namespace lab{
 				//primul index din acest poligon
 				unsigned int index_of_first_vertex_of_face = -1;
 
-								
 				for(unsigned int num_token =1; num_token<tokens.size();num_token++){
 					if(tokens[num_token].at(0)=='#') break;					//comment dupa fata
 					_faceTokenize(tokens[num_token],facetokens);
