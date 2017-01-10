@@ -152,7 +152,7 @@ void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
 			if ( (ti | tj) == SPANNING) {
 				glm::vec3 normal = getNormal();
 				double t = (D - glm::dot(normal, vi.get_position())) / (
-						glm::dot(normal, vj.get_position() - vi.get_position()));
+				glm::dot(normal, vj.get_position() - vi.get_position()));
 				auto v = vi.interpolate(vj, t);
 				//auto v = vi;
 
