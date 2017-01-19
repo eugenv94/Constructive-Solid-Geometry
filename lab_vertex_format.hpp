@@ -12,8 +12,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #endif
 
+#include <iostream>
 
 #include <string>
+#define myABS(a) ( (a > 0) ? (a) : (-a) )
 
 namespace lab {
 	struct VertexFormat {
@@ -67,7 +69,11 @@ namespace lab {
 			normal_z *= -1;
 		}
 
+
+
 		VertexFormat interpolate (const VertexFormat &other, float t) {
+
+
 			float new_position_x = position_x + (other.position_x - position_x) * t;
 			float new_position_y = position_y + (other.position_y - position_y) * t;
 			float new_position_z = position_z + (other.position_z - position_z) * t;
@@ -79,7 +85,7 @@ namespace lab {
 			float new_texcoord_x = texcoord_x + (other.texcoord_x - texcoord_x) * t;
 			float new_texcoord_y = texcoord_y + (other.texcoord_y - texcoord_y) * t;
 
-			return VertexFormat (new_position_x, new_position_z, new_position_z,
+			return VertexFormat (new_position_x, new_position_y, new_position_z,
 							     new_normal_x, new_normal_y, new_normal_z,
 							     new_texcoord_x, new_texcoord_y);
 		}

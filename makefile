@@ -1,10 +1,11 @@
 CC := g++ -std=c++11
 SRCS := $(wildcard *.hpp) main.cpp
 INCLUDES := -I/usr/local/include -L/usr/local/lib
-FLAGS = -lglew -framework OpenGL -framework GLUT -framework Cocoa -w
+FLAGS = -lglew -framework OpenGL -framework GLUT -framework Cocoa -w -g
 
 build:
 	$(CC) $(SRCS) $(INCLUDES) $(FLAGS)
+	./a.out
 
 run:
 	./a.out

@@ -63,7 +63,7 @@ public:
 		
 		lab::loadObj("resurse/torus.obj", torus_mesh);
 		lab::loadObj("resurse/cube.obj", cube_mesh);
-		lab::loadObj("resurse/cube2.obj", cube_mesh2);
+		lab::loadObj("resurse/cube3.obj", cube_mesh2);
 		lab::loadObj("resurse/sphere.obj", sphere_mesh);
 
 
@@ -72,10 +72,20 @@ public:
 		Object *cube2 = cube_mesh2.to_object();
 		Object *sphere = sphere_mesh.to_object();
 
+		auto polygons = cube2->get_polygons();
+	//	for (auto polygon : polygons) {
+	//		std::cout << "Poligon:\n";
+	//		for (auto point : polygon.getPoints()) {
+	//			std::cout << point.position_x << " " << point.position_y << " " << point.position_z << "\n";
+	//		}
+	//		std::cout << "\n\n";
+	//	}
+
+
 //		Object *object = cube->subtract (sphere);
-		Object *object = cube->subtract(cube2);
-		lab::loadBSB (cube, object_mesh1);
-		lab::loadBSB (cube2, object_mesh2);
+		Object *object = cube2->Union(sphere);
+		lab::loadBSB (cube2, object_mesh1);
+		lab::loadBSB (sphere, object_mesh2);
 		lab::loadBSB (object, object_mesh3);
 
 		camera.set(glm::vec3 (0, 50, 500), glm::vec3 (0, 10, 0), glm::vec3 (0, 1, 1));
