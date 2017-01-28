@@ -1,0 +1,487 @@
+#pragma once
+
+#include "lab_vertex_format.hpp"
+
+#include <vector>
+#include <iostream>
+#include <stack>
+#include <ctime>
+#include <cstdlib>
+
+#ifdef _WIN32
+#include "dependente\glew\glew.h"
+#include "dependente\glm\glm.hpp"
+#include "dependente\glm\gtc\type_ptr.hpp"
+#include "dependente\glm\gtc\matrix_transform.hpp"
+#else
+#include <GL/glew.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#endif
+
+
+class Polygon;
+
+struct Plane {
+	double A, B, C, D;
+}
+
+Plane getPlaneFromPoints(lab::VertexFormat &P1, lab::VertexFormat &P2,
+		lab::VertexFormat &P3) {
+	// Construct the plane equation from 3 points P1, P2 and P3.
+	//
+	// The plane equation is:
+	// A(x - x0) + B(y - y0) + C(z - z0) = 0
+	// or
+	// Ax + By + Cz = D
+	//
+	// We first need to get the normal of the plane (cross product of
+	// two vectors in the plane) and then get the coordinates A, B, C
+	// and D.
+
+	glm::vec3 V1 = P2.get_position() - P1.get_position();
+	glm::vec3 V2 = P3.get_position() - P1.get_position();
+	glm::vec3 normal = glm::normalize(glm::cross(V1, V2));
+
+	double A = normal.x;
+	double B = normal.y;
+	double C = normal.z;
+	double D = glm::dot(normal, P1.get_position());
+
+	return Plane(A, B, C, D);
+}
+
+glm::vec3 Plane::getNormal() {
+	return glm::vec3(A, B, C);
+}
+
+
+
+//class Plane {
+//	public:
+//		double A, B, C, D;
+//
+//		Plane();
+//		Plane(lab::VertexFormat &P1, lab::VertexFormat &P2,
+//				lab::VertexFormat &P3);
+//		glm::vec3 getNormal();
+//		void splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
+//			std::vector<Polygon> &coplanarBack, std::vector<Polygon> &frontFace,
+//			std::vector<Polygon> &backFace);
+//};
+
+
+class Polygon {
+	public:
+		Polygon();
+		Polygon(std::vector<lab::VertexFormat> points);
+		std::vector<lab::VertexFormat> getPoints();
+		Plane getPlane();
+		void flip();
+	private:
+		std::vector<lab::VertexFormat> points;
+		Plane plane;
+};
+
+Plane::Plane() {}
+
+Plane::Plane(lab::VertexFormat &P1, lab::VertexFormat &P2,
+		lab::VertexFormat &P3) {
+	// Construct the plane equation from 3 points P1, P2 and P3.
+	//
+	// The plane equation is:
+	// A(x - x0) + B(y - y0) + C(z - z0) = 0
+	// or
+	// Ax + By + Cz = D
+	//
+	// We first need to get the normal of the plane (cross product of
+	// two vectors in the plane) and then get the coordinates A, B, C
+	// and D.
+
+	glm::vec3 V1 = P2.get_position() - P1.get_position();
+	glm::vec3 V2 = P3.get_position() - P1.get_position();
+	glm::vec3 normal = glm::normalize(glm::cross(V1, V2));
+
+	this->A = normal.x;
+	this->B = normal.y;
+	this->C = normal.z;
+	this->D = glm::dot(normal, P1.get_position());
+}
+
+glm::vec3 Plane::getNormal() {
+	return glm::vec3(A, B, C);
+}
+
+void Plane::splitPolygon(Polygon polygon, std::vector<Polygon> &coplanarFront,
+	std::vector<Polygon> &coplanarBack, std::vector<Polygon> &frontFace,
+	std::vector<Polygon> &backFace) {
+
+	int COPLANAR = 0;
+	int FRONT = 1;
+	int BACK = 2;
+	int SPANNING = 3;
+
+	int polygonType = 0;
+	std::vector<lab::VertexFormat> points = polygon.getPoints();
+	std::vector<int> types;
+
+
+	for (int i = 0; i < points.size(); i++) {
+
+		glm::vec3 normal = getNormal();
+		double t = glm::dot(normal, points[i].get_position()) - D;
+
+		int type;
+		if (t < -0.0001) {
+			type = BACK;
+		} else if (t > 0.0001) {
+			type = FRONT;
+		} else {
+			type = COPLANAR;
+		}
+
+		polygonType |= type;
+		types.push_back(type);
+	}
+
+	if (polygonType == COPLANAR) {
+
+		glm::vec3 normal = getNormal();
+		glm::vec3 polygonNormal = polygon.getPlane().getNormal();
+		double k = glm::dot(normal, polygonNormal);
+
+		if (k > 0) {
+			coplanarFront.push_back(polygon);
+		} else {
+			coplanarBack.push_back(polygon);
+		}
+	}
+
+	if (polygonType == FRONT) {
+		frontFace.push_back(polygon);
+	}
+
+	if (polygonType == BACK) {
+		backFace.push_back(polygon);
+	}
+
+	if (polygonType == SPANNING) {
+
+		std::vector<lab::VertexFormat> f;
+		std::vector<lab::VertexFormat> b;
+
+		for (int i = 0; i < points.size(); i++) {
+
+			int j = (i + 1) % points.size();
+			int ti = types[i];
+			int tj = types[j];
+
+			auto vi = points[i];
+			auto vj = points[j];
+			if (ti != BACK) f.push_back(vi);
+			if (ti != FRONT) b.push_back(vi);
+
+			if ( (ti | tj) == SPANNING) {
+				glm::vec3 normal = getNormal();
+
+				float t = (this->D - glm::dot(normal, vi.get_position())) / (
+					glm::dot(normal, vj.get_position() - vi.get_position()));
+				auto v = vi.interpolate(vj, t);
+
+				f.push_back(v);
+				b.push_back(v);
+			}
+		}
+	
+		if (f.size() >= 3) frontFace.push_back(Polygon(f));
+		if (b.size() >= 3) backFace.push_back(Polygon(b));
+	}
+}
+
+Polygon::Polygon(){}
+
+Polygon::Polygon(std::vector<lab::VertexFormat> points) {
+
+	if (points.size() < 3) {
+		std::cout << "A polygon should have at least 3 vertices!";
+		return;
+	}
+
+	this->points = points;
+	this->plane = Plane(points[0], points[1], points[2]);
+}
+
+void Polygon::flip() {
+	std::reverse (this->points.begin(), this->points.end());
+	for (auto &point : this->points) {
+		point.flip();
+	}
+	plane.A *= -1;
+	plane.B *= -1;
+	plane.C *= -1;
+	plane.D *= -1;
+}
+
+Plane Polygon::getPlane() {
+	return plane;
+}
+
+std::vector<lab::VertexFormat> Polygon::getPoints() {
+	return points;
+}
+
+
+// Forward declaration for the swap function.
+class BSPNode;
+
+void swapBSPs(BSPNode *&A, BSPNode *&B) {
+	auto aux = A;
+	A = B;
+	B = aux;
+}
+
+class BSPNode {
+	private:
+			bool initialized;
+			int splittingIndex;
+			Plane plane;
+			BSPNode *left;
+			BSPNode *right;
+			std::vector<Polygon> coplanarPolygons;
+
+	public:
+
+		BSPNode(std::vector<Polygon> polygons) {
+			// Construct a node in the binary space partitioning tree with the
+			// given polygons. It will pick a random polygon and consider it as
+			// the dividing plane. By using this 
+			
+			// If we have no polygons, we can stop the algorithm.
+			if (polygons.size() == 0) {
+				this->left = NULL;
+				this->right = NULL;
+				this->splittingIndex = -1;
+				this->initialized = false;
+				return;
+			}
+			this->initialized = true;
+
+			// We pick a random plane to split the polygons. This is better than
+			// choosing the first point or another fixed point because it would
+			// have a better distribution in the tree.
+			this->splittingIndex = rand() % polygons.size();
+			this->plane = polygons[this->splittingIndex].getPlane();
+
+			std::vector<Polygon> coplanar;
+			std::vector<Polygon> front;
+			std::vector<Polygon> back;
+
+			for (auto polygon : polygons) {
+				this->plane.splitPolygon(polygon, coplanar, coplanar, front, back);
+			}
+			this->coplanarPolygons = coplanar;
+
+			if (front.size() == 0) {
+				this->left = NULL;
+			} else {
+				this->left = new BSPNode(front);
+			}
+
+			if (back.size() == 0) {
+				this->right = NULL;
+			} else {
+				this->right = new BSPNode(back);
+			}
+		}
+
+		void appendPolygons(std::vector<Polygon> polygons) {
+			// Add some new polygons to the already existing tree. These will be
+			// added considering the already existing split (at least for the
+			// nodes that are already computed and have a plane assigned) and
+			// for the rest we will calculate another splitting plane that will
+			// split the rest.
+
+			if (polygons.size() == 0) return;
+			if (this->splittingIndex == -1) {
+				// If we haven't splitted this plane before, we need to split it
+				// now. We will do this by picking another random polygon from
+				// the list and split after it.
+				this->splittingIndex = rand() % polygons.size();
+				this->plane = polygons[this->splittingIndex].getPlane();
+			}
+			this->initialized = true;
+
+			std::vector<Polygon> coplanar;
+			std::vector<Polygon> front;
+			std::vector<Polygon> back;
+
+			for (auto polygon : polygons) {
+				this->plane.splitPolygon(polygon, coplanar, coplanar, front, back);
+			}
+			this->coplanarPolygons.insert(this->coplanarPolygons.end(),
+					std::make_move_iterator(coplanar.begin()),
+					std::make_move_iterator(coplanar.end()));
+
+			// If the left node isn't initialized we initialize it by passing
+			// the nodes that it needs to take care of. Otherwise we continue
+			// the appending process.
+			if (this->left == NULL) {
+				this->left = new BSPNode(front);
+			} else {
+				this->left->appendPolygons(front);
+			}
+
+			// Do the same for the right node.
+			if (this->right == NULL) {
+				this->right = new BSPNode(back);
+			} else {
+				this->right->appendPolygons(back);
+			}
+		}
+
+		void reverseFrontBack() {
+			for (auto &polygon : this->coplanarPolygons) {
+				// We need to reverse every point.
+				polygon.flip();
+			}
+
+			// Reverse the plane as well.
+			this->plane.A *= -1;
+			this->plane.B *= -1;
+			this->plane.C *= -1;
+			this->plane.D *= -1;
+
+
+			if (this->left != NULL) this->left->reverseFrontBack();
+			if (this->right != NULL) this->right->reverseFrontBack();
+
+			swapBSPs(this->left, this->right);
+		}
+
+		std::vector<Polygon> clipPolygons(std::vector<Polygon> polygons) {
+			std::vector<Polygon> result;
+
+			std::vector<Polygon> front, back;
+			for (auto polygon : polygons) {
+				this->plane.splitPolygon(polygon, front, back, front, back);
+			}
+
+			if (this->left != NULL) {
+				front = this->left->clipPolygons(front);
+			}
+			result.insert(result.end(), std::make_move_iterator(front.begin()),
+					std::make_move_iterator(front.end()));
+
+			if (this->right != NULL) {
+				back = this->right->clipPolygons(back);
+				result.insert(result.end(), std::make_move_iterator(
+							back.begin()), std::make_move_iterator(back.end()));
+			}
+			
+			return result;
+		}
+
+		void clipTo(BSPNode* bsp) {
+			this->coplanarPolygons = bsp->clipPolygons(this->coplanarPolygons);
+		
+			std::stack<BSPNode*> S;
+			S.push(this);
+			while (!S.empty()) {
+				auto p = S.top();
+				S.pop();
+
+				if (p == NULL) {
+					continue;
+				}
+
+				S.push(p->left);
+				S.push(p->right);
+			}
+			if (this->left != NULL) {
+				this->left->clipTo(bsp);
+			}
+
+			if (this->right != NULL) {
+				this->right->clipTo(bsp);
+			}
+		}
+
+		std::vector<Polygon> getPolygons() {
+			// Get all polygons for this tree recursively.
+
+			std::vector<Polygon> result = this->coplanarPolygons;
+			if (this->left != NULL) {
+				auto part_result = this->left->getPolygons();
+				result.insert(result.end(),
+						std::make_move_iterator(part_result.begin()),
+						std::make_move_iterator(part_result.end()));
+			}
+
+			if (this->right != NULL) {
+				auto part_result = this->right->getPolygons();
+				result.insert(result.end(),
+						std::make_move_iterator(part_result.begin()),
+						std::make_move_iterator(part_result.end()));
+			}
+
+			return result;
+		}
+
+};
+
+class Object {
+	public:
+		BSPNode* bsp_tree;
+		
+		Object (std::vector<Polygon> polygons) {
+			bsp_tree = new BSPNode(polygons);
+		}
+
+
+		Object* subtract(Object *other) {
+			std::vector<Polygon> V1 = this->bsp_tree->getPolygons();
+			std::vector<Polygon> V2 = other->bsp_tree->getPolygons();
+
+			BSPNode* A = new BSPNode(V1);
+			BSPNode* B = new BSPNode(V2);
+
+			A->reverseFrontBack();
+			A->clipTo(B);
+			B->clipTo(A);
+			B->reverseFrontBack();
+			B->clipTo(A);
+			B->reverseFrontBack();
+			A->appendPolygons(B->getPolygons());
+			A->reverseFrontBack();
+
+			std::vector<Polygon> resultingPolygons = A->getPolygons();
+			return new Object(resultingPolygons);
+		}
+
+
+
+		Object* Union(Object *other) {
+			std::vector<Polygon> V1 = this->bsp_tree->getPolygons();
+			std::vector<Polygon> V2 = other->bsp_tree->getPolygons();
+
+			BSPNode* A = new BSPNode(V1);
+			BSPNode* B = new BSPNode(V2);
+
+			A->clipTo(B);
+			B->clipTo(A);
+			B->reverseFrontBack();
+			B->clipTo(A);
+			B->reverseFrontBack();
+			A->appendPolygons(B->getPolygons());
+
+			std::vector<Polygon> resultingPolygons = A->getPolygons();
+			return new Object(resultingPolygons);
+		}
+
+		std::vector<Polygon> get_polygons() {
+			return bsp_tree->getPolygons();
+		}
+};
+
+

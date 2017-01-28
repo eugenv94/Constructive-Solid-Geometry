@@ -5,7 +5,6 @@ FLAGS = -lglew -framework OpenGL -framework GLUT -framework Cocoa -w -g
 
 build:
 	$(CC) $(SRCS) $(INCLUDES) $(FLAGS)
-	./a.out
 
 run:
 	./a.out

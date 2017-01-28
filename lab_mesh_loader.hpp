@@ -13,7 +13,7 @@
 #endif
 
 #include "lab_vertex_format.hpp"
-#include "lab_csg.hpp"
+#include "bsp_tree.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -24,24 +24,23 @@
 
 namespace lab{
 
-
-
-	class Indexer {
+	class VertexKeeper {
 	public:
-		std::vector<lab::VertexFormat> unique;
-		std::vector<unsigned int> indices;
-		std::unordered_map<std::string, unsigned int> hash_map;
+		std::vector<lab::VertexFormat> vertices;
 
 		unsigned int add (VertexFormat &vertex) {
 			std::string key = vertex.toString();
-			if (this->hash_map.find (key) == this->hash_map.end()) {
-				this->hash_map[key] = this->unique.size();
-				this->unique.push_back (vertex);
+			if (this->M.find (key) == this->M.end()) {
+				this->M[key] = this->vertices.size();
+				this->vertices.push_back (vertex);
 			}
 
-			return this->hash_map[key];
+			return this->M[key];
 		}
 
+	private:
+		std::vector<int> indices;
+		std::unordered_map<std::string, int> M;
 	};
 
 
@@ -77,15 +76,14 @@ namespace lab{
             glDeleteBuffers(1, &vao);
         }
 
-        Object *to_object () {
+        Object *to_object (glm::mat4 model_matrix) {
         	std::vector<Polygon> polygons;
 
-        	std::cout << "before: " << std::endl;
         	for (int i = 0; i < indices.size(); i += 3) {
         		std::vector<lab::VertexFormat> polygon_vertices;
-        		polygon_vertices.push_back (vertices[indices[i + 0]]);
-        		polygon_vertices.push_back (vertices[indices[i + 1]]);
-        		polygon_vertices.push_back (vertices[indices[i + 2]]);
+        		polygon_vertices.push_back (vertices[indices[i + 0]].transform(model_matrix));
+        		polygon_vertices.push_back (vertices[indices[i + 1]].transform(model_matrix));
+        		polygon_vertices.push_back (vertices[indices[i + 2]].transform(model_matrix));
         		polygons.push_back (Polygon (polygon_vertices));
         	}
 
@@ -99,12 +97,12 @@ namespace lab{
 		std::vector<lab::VertexFormat> vertices;
 		std::vector<unsigned int> indices;
 
-    	Indexer indexer;
+    	VertexKeeper keeper;
 
     	for (Polygon &polygon: polygons) {
     		std::vector<unsigned int> polygon_indices;
-    		for (VertexFormat &vertex: polygon.getPoints()) {
-    			unsigned int index = indexer.add (vertex);
+    		for (VertexFormat &vertex: polygon.points) {
+    			unsigned int index = keeper.add (vertex);
     			polygon_indices.push_back (index);
     		}
 
@@ -115,8 +113,11 @@ namespace lab{
     		}
     	}
 
-    	vertices = indexer.unique;
-			unsigned int gl_vertex_array_object, gl_vertex_buffer_object, gl_index_buffer_object;
+    	vertices = keeper.vertices;
+
+    	if (vertices.size() == 0)
+    		return;
+		unsigned int gl_vertex_array_object, gl_vertex_buffer_object, gl_index_buffer_object;
 
 		//vertex array object -> un obiect ce reprezinta un container pentru starea de desenare
 		glGenVertexArrays(1, &gl_vertex_array_object);
@@ -406,3 +407,4 @@ namespace lab{
 	}
 
 }
+

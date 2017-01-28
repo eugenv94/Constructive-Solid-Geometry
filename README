@@ -1,0 +1,22 @@
+// Stanciu Marius-Valeriu 342C4
+// Vasilescu Eugen 342C4
+
+Pentru acest proiect am avut de implementat constructive solid geometry. Am rezolvat tema in paralel pe Windows si Mac OS, deci codul este compatibil cu ambele sisteme de operare. Totusi, versiunea finala a fost prezentata pe Mac OS, deci pentru a functiona pe Windows mai trebuiesc facute mici modificari la pozitia camerei.
+
+Aplicatia functioneaza in felul urmator:
+- se alege o primitiva (avem ca primitive sfera (tasta 1), cub (tasta 2), tor (tasta 3), cilindru (tasta 4).
+- se scaleaza, translateaza, roteste aceasta primitiva asa cum ne dorim folosind sagetile si i, k (translatie), + si - pentru scalare si m n b v c x pentru rotatie pe toate axele.
+- dupa ce am plasat primitiva in punctul final in care vrem sa fie, trebuie sa apasam SPACE pentru a trece la plasarea celei de-a 2a primitiva. Acesta va fi plasata in acelasi mod ca si prima primitiva si se va putea muta la locul dorit.
+- dupa ce ambele primitive au fost puse in scena, trebuie sa alegem operatia ce o vom efectua pe cele 2. Avem la dispozitie 3 operatii: intersectie, reuniune si diferenta. Dupa alegerea operatie, in scena va aparea noul obiect generat. Pentru ca de multe ori ne dorim sa continuam cu aceasta primitva operatiile, primitiva nou formata va fi adaugata pe urmatoarea tasta numerica libera (incepand de la 5 si continuand pana la 9). Toate primitivele nou formate vor putea fi reaccesate folosind aceste taste si combinate intre ele sau cu primitvele originale.
+- Dupa ce apasam space din nou vom putea efectua o noua operatie intre 2 primitive.
+
+Ca si implementare, am folosit binary space partitioning trees. Vom avea pentru fiecare obiect din scena cate un BSP tree. Acesta va imparti in mod recursiv poligoanele ce construiesc obiectul. Fiecare nod din BSP va alege o dreapta random dupa care va efectua impartirea (ideal ar fi ca impartirea sa fie cat mai echilibrata, dar cum nu avem garantia ca putem face asta am ales un plan random dintre cele existente pentru a face impartirea). Dupa construirea arborelui BSP, trebuie sa implementam 3 operatii:
+- complement: inversam continutul obiectului (va contine tot ce nu continea inainte si va pierde continutul curent). Acest lucru ne ajuta sa facem de exemplu intersectia (pentru a intersecta A cu B, trebuie sa calculam complementul lui B si il scadem din A. Astfel vom ramane doar cu poligoanele comune celor 2).
+- subtract: scade dintr-un BSP tree un alt BSP tree.
+- combine: combina 2 arbori BSP.
+
+
+Operatiile propriu zise se fac in felul urmator:
+- intersect A B: facem complementul lui B si il scadem din A;
+- reunion A B: scadem A din B si B din A si combinam rezultatele obtinute;
+- subtract A B: este nevoie doar sa apelam functia subtract amintita mai sus.

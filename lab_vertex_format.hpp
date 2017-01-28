@@ -15,7 +15,6 @@
 #include <iostream>
 
 #include <string>
-#define myABS(a) ( (a > 0) ? (a) : (-a) )
 
 namespace lab {
 	struct VertexFormat {
@@ -33,26 +32,37 @@ namespace lab {
 			normal_x =normal_y= normal_z =0;
 			texcoord_x=	texcoord_y=0;
 		}
+
 		VertexFormat(float px, float py, float pz, float nx, float ny, float nz){
 			position_x =px;		position_y =py;		position_z =pz;
 			normal_x =nx;		normal_y =ny;		normal_z =nz;
 			texcoord_x=	texcoord_y=0;
 		}
+
 		VertexFormat(float px, float py, float pz, float tx, float ty){
 			position_x =px;		position_y =py;		position_z =pz;
 			texcoord_x=tx;		texcoord_y=ty;
 			normal_x =normal_y= normal_z =0;
 		}
+
 		VertexFormat(float px, float py, float pz, float nx, float ny, float nz, float tx, float ty){
 			position_x =px;		position_y =py;		position_z =pz;
 			normal_x =nx;		normal_y =ny;		normal_z =nz;
 			texcoord_x=tx;		texcoord_y=ty;
 		}
+
 		VertexFormat operator=(const VertexFormat &rhs){ 
 			position_x = rhs.position_x;	position_y = rhs.position_y;	position_z = rhs.position_z;
 			normal_x = rhs.normal_x;		normal_y = rhs.normal_y;		normal_z = rhs.normal_z;
 			texcoord_x = rhs.texcoord_x;	texcoord_y = rhs.texcoord_y;
 			return (*this);
+		}
+
+		VertexFormat transform (glm::mat4 model_matrix) {
+			glm::vec4 pos (position_x, position_y, position_z, 1);
+
+			pos = model_matrix * pos;
+			return VertexFormat (pos.x, pos.y, pos.z, normal_x, normal_y, normal_z, texcoord_x, texcoord_y);
 		}
 
 		glm::vec3 get_position() {
@@ -63,16 +73,7 @@ namespace lab {
 			return glm::vec3  (normal_x, normal_y, normal_z);
 		}
 
-		void flip () {
-			normal_x *= -1;
-			normal_y *= -1;
-			normal_z *= -1;
-		}
-
-
-
 		VertexFormat interpolate (const VertexFormat &other, float t) {
-
 
 			float new_position_x = position_x + (other.position_x - position_x) * t;
 			float new_position_y = position_y + (other.position_y - position_y) * t;
@@ -109,3 +110,4 @@ namespace lab {
 
 	};
 }
+
